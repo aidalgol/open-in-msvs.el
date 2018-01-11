@@ -43,6 +43,7 @@
 ;;; Code:
 
 (require 's)
+(require 'cl)
 
 (defun open-in-msvs--cygpath-to-windows (filename)
   "Convert filename to a Windows path with cygpath."
@@ -62,19 +63,34 @@
 
 ;; Main function
 ;;;###autoload
-(defun open-in-msvs ()
-  "Opens current file:line:column within active instance of Visual Studio or start new one."
+(defun* open-in-msvs (&optional
+                      (filename (buffer-file-name) filename-p)
+                      (line (if filename-p
+                                0
+                              (line-number-at-pos))
+                            line-p)
+                      (column (if filename-p
+                                  0
+                                (current-column))
+                              column-p))
+  "Opens FILENAME:LINE:COLUMN within active instance of Visual Studio or start new one.
+
+With no arguments, uses `buffer-file-name' and line and column at point.
+
+If FILENAME is provided, then LINE and COLUMN default to 0."
   (interactive)
   (save-restriction
     (widen)
-    (let ((filename (if (eq system-type 'cygwin)
-                        (open-in-msvs--cygpath-to-windows (buffer-file-name))
-                      (buffer-file-name))))
+    (let* ((filename (or filename (buffer-file-name)))
+           (file-path (if (eq system-type 'cygwin)
+                          (open-in-msvs--cygpath-to-windows filename)
+                        filename)))
       (call-process "cmd.exe"
                     nil nil nil
                     "/C" 
-                    open-in-msvs--path-to-vbs filename
-                    (number-to-string (line-number-at-pos)) (number-to-string (current-column))))))
+                    open-in-msvs--path-to-vbs file-path
+                    (number-to-string (or line (line-number-at-pos)))
+                    (number-to-string (or column (current-column)))))))
 
 
 (provide 'open-in-msvs)
